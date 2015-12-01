@@ -94,22 +94,23 @@ class SimplePageRank(object):
         You are allowed to change the signature if you desire to.
         """
         def distribute_weights((node, (weight, targets))):
-            emission = [(node, .05*weight), (node, .1)]
-            for target in targets:
-                e_weight = .85 * weight / len(targets)
-                emission.append((target, e_weight))
+            emission = [(node, .05 * weight), (node, .1)]
             if len(targets) == 0:
-                e_weight = .85 * weight / (nodes.count() - 1)
-                for i in range(nodes.count()):
+                e_weight = (.85 * weight) / (num_nodes - 1)
+                for i in range(num_nodes):
                     if i == node:
                         continue
                     emission.append((i, e_weight))
+            else:
+                e_weight = (.85 * weight) / len(targets)
+                for target in targets:
+                    emission.append((target, e_weight))
             emission.append((node, targets))
             return emission
 
         """
         Reducer phase.
-        We are given a node as a key and a list of all the values emitted by the mappers
+        We are given a node as a key and a list of all the values emitted by the mapper
         corresponding to that key.
         There should be two types of values:
         Pagerank scores, which represent how much score an incoming node is giving to us,
@@ -117,20 +118,17 @@ class SimplePageRank(object):
         The output of this phase should be in the same format as the input to the mapper.
         You are allowed to change the signature if you desire to.
 
-        Assuming the input is of the form (node, [(weight, targets), (weight, targets), ... ])
+        Assuming the input is of the form (node, [weight, weight, ..., targets, ...])
         """
         def collect_weights((node, values)):
-            # YOUR CODE HERE
             weight = 0
-            for i in range(len(values)):
-                #print str(node)
-                if isinstance(values[i], frozenset):
-                    targets = values[i]
-                    #print "target " + str(values[i])
+            for element in values:
+                if type(element) == frozenset:
+                    targets = element
                 else:
-                    weight += values[i]
-                    #print "weight " + str(values[i])
+                    weight += element
             return (node, (weight, targets))
+
 
         return nodes.flatMap(distribute_weights).groupByKey().map(collect_weights)
 
