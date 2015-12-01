@@ -70,10 +70,7 @@ class SimplePageRank(object):
         def initialize_weights((source, targets)):
             return (source, (1.0, targets))
 
-        nodes = input_rdd\
-                .flatMap(emit_edges)\
-                .reduceByKey(reduce_edges)\
-                .map(initialize_weights)
+        nodes = input_rdd.flatMap(emit_edges).reduceByKey(reduce_edges).map(initialize_weights)
         return nodes
 
     """
@@ -97,8 +94,18 @@ class SimplePageRank(object):
         You are allowed to change the signature if you desire to.
         """
         def distribute_weights((node, (weight, targets))):
-            # YOUR CODE HERE
-            return []        
+            emission = [(node, .05*weight), (node, .1)]
+            for target in targets:
+                e_weight = .85 * weight / len(targets)
+                emission.append((target, e_weight))
+            if len(targets) == 0:
+                e_weight = .85 * weight / (nodes.count() - 1)
+                for i in range(nodes.count()):
+                    if i == node:
+                        continue
+                    emission.append((i, e_weight))
+            emission.append((node, targets))
+            return emission
 
         """
         Reducer phase.
@@ -109,15 +116,23 @@ class SimplePageRank(object):
         and edge data, which we need to collect and store for the next iteration.
         The output of this phase should be in the same format as the input to the mapper.
         You are allowed to change the signature if you desire to.
+
+        Assuming the input is of the form (node, [(weight, targets), (weight, targets), ... ])
         """
         def collect_weights((node, values)):
             # YOUR CODE HERE
-            return []
+            weight = 0
+            for i in range(len(values)):
+                #print str(node)
+                if isinstance(values[i], frozenset):
+                    targets = values[i]
+                    #print "target " + str(values[i])
+                else:
+                    weight += values[i]
+                    #print "weight " + str(values[i])
+            return (node, (weight, targets))
 
-        return nodes\
-                .flatMap(distribute_weights)\
-                .groupByKey()\
-                .map(collect_weights)
+        return nodes.flatMap(distribute_weights).groupByKey().map(collect_weights)
 
     """
     Formats the output of the data to the format required by the specs.
@@ -127,7 +142,4 @@ class SimplePageRank(object):
     """
     @staticmethod
     def format_output(nodes):
-        return nodes\
-                .map(lambda (node, (weight, targets)): (weight, node))\
-                .sortByKey(ascending = False)\
-                .map(lambda (weight, node): (node, weight))
+        return nodes.map(lambda (node, (weight, targets)): (weight, node)).sortByKey(ascending = False).map(lambda (weight, node): (node, weight))
